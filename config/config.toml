@@ -1,0 +1,9 @@
+[event_store]
+host = "0.0.0.0:4222"
+cluster_id = "test-cluster"
+
+[signal_server]
+host = "127.0.0.1:4222"
+
+[database]
+dbpath = "./db"
