@@ -8,6 +8,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	nats "github.com/nats-io/nats.go"
+	stan "github.com/nats-io/stan.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
@@ -18,8 +19,8 @@ import (
 type Service struct {
 	app                app.AppImpl
 	dbMgr              *DatabaseManager
-	createEventChannel *nats.Subscription
-	deleteEventChannel *nats.Subscription
+	createEventChannel stan.Subscription
+	deleteEventChannel stan.Subscription
 	tickerChannel      *nats.Subscription
 }
 
@@ -54,12 +55,17 @@ func (service *Service) Start() error {
 	// Get MetaData Database
 	dbMeta := service.dbMgr.GetDatabase("timerEventMetadata")
 
-	// listen queue
-	// subscribe atomic-clock
+	// get nats
 	signalBus := service.app.GetSignalBus()
+
+	// get nats streaming
+	eventBus := service.app.GetEventBus()
+
+	// subscribe atomic-clock
 	service.tickerChannel, _ = signalBus.Watch(
 		"timer.ticker",
 		func(m *nats.Msg) {
+			log.Info("Trigger timer event ... ")
 			// search time's up data
 			searchKey := fmt.Sprintf("%v-", string(m.Data))
 			iter := db.db.NewIterator(util.BytesPrefix([]byte(searchKey)), nil)
@@ -77,10 +83,11 @@ func (service *Service) Start() error {
 	)
 
 	// queue subscribe create event
-	service.createEventChannel, _ = signalBus.QueueSubscribe(
+	service.createEventChannel, _ = eventBus.QueueSubscribe(
 		"timer.timerCreated",
 		"create.transaction",
-		func(m *nats.Msg) {
+		func(m *stan.Msg) {
+			log.Info("Create timer event  ... ")
 			// save to db
 			var createEvent pb.TimerCreation
 			err := proto.Unmarshal(m.Data, &createEvent)
@@ -96,9 +103,10 @@ func (service *Service) Start() error {
 	)
 
 	// subscribe delete event
-	service.deleteEventChannel, _ = signalBus.Watch(
+	service.deleteEventChannel, _ = eventBus.On(
 		"timer.timerDeleted",
-		func(m *nats.Msg) {
+		func(m *stan.Msg) {
+			log.Info("Delete timer event ... ")
 			// search db date and delete it.
 			var deleteEvent pb.TimerDeletion
 			err := proto.Unmarshal(m.Data, &deleteEvent)
@@ -119,11 +127,11 @@ func (service *Service) Start() error {
 func (service *Service) Stop() error {
 	// clean leveldb's data and send to queue system
 	signalBus := service.app.GetSignalBus()
-	//eventBus := service.app.GetEventBus()
+	eventBus := service.app.GetEventBus()
 
 	//Unsubscribe
-	signalBus.Unsubscribe(service.createEventChannel)
-	signalBus.Unsubscribe(service.deleteEventChannel)
+	eventBus.Unsubscribe(service.createEventChannel)
+	eventBus.Unsubscribe(service.deleteEventChannel)
 	signalBus.Unsubscribe(service.tickerChannel)
 
 	// Get event data
@@ -139,11 +147,8 @@ func (service *Service) Stop() error {
 		//process data
 		var dataInfo pb.TimerInfo
 		proto.Unmarshal(iter.Value(), &dataInfo)
-		//data.Info = &dataInfo
 
 		timestamp, timerID := parseKey(iter.Key())
-		//data.Timestamp = timestamp
-		//data.TimerID = timerID
 
 		data := pb.TimerCreation{
 			Timestamp: timestamp,
@@ -154,7 +159,6 @@ func (service *Service) Stop() error {
 
 		// publish event data to queue
 		signalBus.Emit("timer.timerCreated", publishData)
-		//eventBus.Emit("timer.timerCreated", iter.Value())
 
 		// Delete data
 		db.DeleteRecord(iter.Key())

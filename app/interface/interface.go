@@ -7,7 +7,9 @@ import (
 
 type EventBusImpl interface {
 	Emit(string, []byte) error
-	On(string, func(*stan.Msg)) error
+	On(string, func(*stan.Msg)) (stan.Subscription, error)
+	QueueSubscribe(string, string, func(*stan.Msg)) (stan.Subscription, error)
+	Unsubscribe(stan.Subscription) error
 }
 
 type SignalBusImpl interface {
