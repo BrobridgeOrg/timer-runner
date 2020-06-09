@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	pb "github.com/BrobridgeOrg/timer-api-service/pb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/syndtr/goleveldb/leveldb"

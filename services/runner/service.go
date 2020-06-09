@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 	log "github.com/sirupsen/logrus"
@@ -65,15 +65,31 @@ func (service *Service) Start() error {
 	service.tickerChannel, _ = signalBus.Watch(
 		"timer.ticker",
 		func(m *nats.Msg) {
-			log.Info("Trigger timer event ... ")
 			// search time's up data
 			searchKey := fmt.Sprintf("%v-", string(m.Data))
 			iter := db.db.NewIterator(util.BytesPrefix([]byte(searchKey)), nil)
 			for iter.Next() {
-				// publist data
-				signalBus.Emit("timer.timeup", iter.Value())
+
+				log.Info("Trigger timer event ... ")
+
+				//process data
+				var dataInfo pb.TimerInfo
+				proto.Unmarshal(iter.Value(), &dataInfo)
 
 				_, timerID := parseKey(iter.Key())
+
+				data := pb.TimerTriggerInfo{
+					TimerID: timerID,
+					Info:    &dataInfo,
+				}
+				publishData, err := proto.Marshal(&data)
+				if err != nil {
+					log.Error(err)
+				}
+
+				// publish data
+				eventBus.Emit("timer.triggered", publishData)
+
 				db.DeleteRecord(iter.Key())
 				dbMeta.DeleteMetaRecord([]byte(timerID))
 			}
