@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	app "timer-runner/app"
+	app "vibration-runner/app"
 )
 
 func init() {

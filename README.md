@@ -1,6 +1,6 @@
-# Twist Runner
+# Vibration Runner
 
-Runner is used to handle transaction data
+Runner is used to handle timer event
 
 ## License
 

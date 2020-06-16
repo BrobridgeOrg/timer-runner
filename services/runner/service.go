@@ -12,8 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	pb "github.com/BrobridgeOrg/timer-api-service/pb"
-	app "timer-runner/app/interface"
+	pb "github.com/BrobridgeOrg/vibration-api-service/pb"
+	app "vibration-runner/app/interface"
 )
 
 type Service struct {

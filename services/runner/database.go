@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	pb "github.com/BrobridgeOrg/timer-api-service/pb"
+	pb "github.com/BrobridgeOrg/vibration-api-service/pb"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

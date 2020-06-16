@@ -2,10 +2,10 @@ package app
 
 import (
 	"strconv"
-	"timer-runner/app/eventbus"
-	app "timer-runner/app/interface"
-	"timer-runner/app/signalbus"
-	"timer-runner/services/runner"
+	"vibration-runner/app/eventbus"
+	app "vibration-runner/app/interface"
+	"vibration-runner/app/signalbus"
+	"vibration-runner/services/runner"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/sony/sonyflake"
