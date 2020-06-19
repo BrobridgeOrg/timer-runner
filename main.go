@@ -15,7 +15,7 @@ import (
 func init() {
 
 	// From the environment
-	viper.SetEnvPrefix("TIMER_RUNNER")
+	viper.SetEnvPrefix("VIBRATION_RUNNER")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
