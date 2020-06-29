@@ -2,11 +2,13 @@ package app
 
 import (
 	"strconv"
+	"time"
 	"vibration-runner/app/eventbus"
 	app "vibration-runner/app/interface"
 	"vibration-runner/app/signalbus"
 	"vibration-runner/services/runner"
 
+	nats "github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/sony/sonyflake"
 	"github.com/spf13/viper"
@@ -18,6 +20,7 @@ type App struct {
 	signalbus *signalbus.SignalBus
 	eventbus  *eventbus.EventBus
 	runner    *runner.Service
+	isReady   bool
 }
 
 func CreateApp() *App {
@@ -31,19 +34,66 @@ func CreateApp() *App {
 
 	idStr := strconv.FormatUint(id, 16)
 
-	return &App{
+	a := &App{
 		id:    id,
 		flake: flake,
-		eventbus: eventbus.CreateConnector(
-			viper.GetString("event_store.host"),
-			viper.GetString("event_store.cluster_id"),
-			idStr,
-		),
-		signalbus: signalbus.CreateConnector(
-			viper.GetString("event_store.host"),
-			idStr,
-		),
 	}
+	a.eventbus = eventbus.CreateConnector(
+		viper.GetString("event_store.host"),
+		viper.GetString("event_store.cluster_id"),
+		idStr,
+		func(natsConn *nats.Conn) {
+
+			for {
+				log.Warn("re-connect to event server")
+
+				// Connect to NATS Streaming
+				err := a.eventbus.Connect()
+				if err != nil {
+					log.Error("Failed to connect to event server")
+					time.Sleep(time.Duration(1) * time.Second)
+					continue
+				}
+
+				a.isReady = true
+
+				break
+			}
+
+		},
+		func(natsConn *nats.Conn) {
+			a.isReady = false
+		},
+	)
+	a.signalbus = signalbus.CreateConnector(
+		viper.GetString("event_store.host"),
+		idStr,
+		func(natsConn *nats.Conn) {
+
+			for {
+				log.Warn("re-connect to signal server")
+
+				// Connect to NATS Streaming
+				err := a.signalbus.Connect()
+				if err != nil {
+					log.Error("Failed to connect to signal server")
+					time.Sleep(time.Duration(1) * time.Second)
+					continue
+				}
+
+				a.isReady = true
+
+				break
+			}
+
+		},
+		func(natsConn *nats.Conn) {
+			a.isReady = false
+		},
+	)
+
+	return a
+
 }
 
 func (a *App) Init() error {

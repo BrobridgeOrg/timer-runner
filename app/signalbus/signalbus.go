@@ -3,18 +3,23 @@ package signalbus
 import (
 	nats "github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 type SignalBus struct {
-	host       string
-	clientName string
-	client     *nats.Conn
+	host              string
+	clientName        string
+	client            *nats.Conn
+	reconnectHandler  func(natsConn *nats.Conn)
+	disconnectHandler func(natsConn *nats.Conn)
 }
 
-func CreateConnector(host string, clientName string) *SignalBus {
+func CreateConnector(host string, clientName string, reconnectHandler func(natsConn *nats.Conn), disconnectHandler func(natsConn *nats.Conn)) *SignalBus {
 	return &SignalBus{
-		host:       host,
-		clientName: clientName,
+		host:              host,
+		clientName:        clientName,
+		reconnectHandler:  reconnectHandler,
+		disconnectHandler: disconnectHandler,
 	}
 }
 
@@ -26,7 +31,15 @@ func (sb *SignalBus) Connect() error {
 	}).Info("Connecting to signal server")
 
 	// Connect to signal server
-	nc, err := nats.Connect(sb.host, nats.Name(sb.clientName), nats.MaxReconnects(-1))
+	nc, err := nats.Connect(
+		sb.host,
+		nats.Name(sb.clientName),
+		nats.MaxReconnects(-1),
+		nats.PingInterval(10*time.Second),
+		nats.MaxPingsOutstanding(3),
+		nats.ReconnectHandler(sb.reconnectHandler),
+		nats.DisconnectHandler(sb.disconnectHandler),
+	)
 	if err != nil {
 		return err
 	}

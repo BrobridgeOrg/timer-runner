@@ -9,17 +9,21 @@ import (
 )
 
 type EventBus struct {
-	host       string
-	clusterID  string
-	clientName string
-	client     stan.Conn
+	host              string
+	clusterID         string
+	clientName        string
+	client            stan.Conn
+	reconnectHandler  func(natsConn *nats.Conn)
+	disconnectHandler func(natsConn *nats.Conn)
 }
 
-func CreateConnector(host string, clusterID string, clientName string) *EventBus {
+func CreateConnector(host string, clusterID string, clientName string, reconnectHandler func(natsConn *nats.Conn), disconnectHandler func(natsConn *nats.Conn)) *EventBus {
 	return &EventBus{
-		host:       host,
-		clusterID:  clusterID,
-		clientName: clientName,
+		host:              host,
+		clusterID:         clusterID,
+		clientName:        clientName,
+		reconnectHandler:  reconnectHandler,
+		disconnectHandler: disconnectHandler,
 	}
 }
 
@@ -32,18 +36,17 @@ func (eb *EventBus) Connect() error {
 	}).Info("Connecting to event server")
 
 	// Connect to queue server
-	nc, err := nats.Connect(eb.host,
+	nc, err := nats.Connect(
+		eb.host,
 		nats.MaxReconnects(-1),
 		nats.PingInterval(10*time.Second),
 		nats.MaxPingsOutstanding(3),
+		nats.ReconnectHandler(eb.reconnectHandler),
+		nats.DisconnectHandler(eb.disconnectHandler),
 	)
 	if err != nil {
 		return err
 	}
-
-	nc.SetReconnectHandler(func(rcb *nats.Conn) {
-		log.Info("Reconnecting to eventbus server ...")
-	})
 
 	sc, err := stan.Connect(eb.clusterID, eb.clientName, stan.NatsConn(nc))
 	if err != nil {
